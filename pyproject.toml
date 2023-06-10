@@ -24,8 +24,7 @@ polyconf = 'polyconf.cli.entry:main'
 
 [tool.poetry.dependencies]
 python = "^3.11"
-#polyconf = "^0.1.0"
-polyconf = {path = "../polyconf", develop = true}
+polyconf = "^0.1"
 "ruamel.yaml" = "^0.17"
 click = "^8.1"
 rich = "^13.3"
