@@ -114,8 +114,12 @@ ignore_errors = true
 
 [tool.pytest.ini_options]
 addopts = [
-    "--import-mode=importlib",
+    "--import-mode=importlib --strict-config --strict-markers -ra"
 ]
+xfail_strict = true
+
+[tool.pylint.format]
+max-line-length = 120
 
 [build-system]
 requires = ["poetry-core"]
