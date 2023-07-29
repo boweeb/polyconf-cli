@@ -2,37 +2,24 @@
 
 import logging
 import sys
-import json
-from typing import Any
+from dataclasses import asdict
 
 import click
-from rich.console import Console
-from rich.highlighter import JSONHighlighter
-
 from polyconf.core.model import Context
 from polyconf.core.registry import Registry
+
 import polyconf.plugins
-from polyconf.core.utils import pipe
+from polyconf.cli import utils as u
 
 
 log = logging.getLogger(__name__)
-
-
-def print_json(data: dict[str, Any]):
-    """Pretty print json to stdout."""
-    json_string = json.dumps(data, indent=4)
-    json_console = Console(
-        highlighter=JSONHighlighter(),
-        stderr=False,
-    )
-    json_console.print(json_string)
 
 
 # CLI ROOT
 @click.group
 @click.option("--verbose", "-v", is_flag=True, default=False, help="Use debug level logging.")
 @click.pass_context
-def root(ctx, verbose):
+def root(ctx, verbose: bool):
     """PolyConf.
 
     Collects configuration from many sources and composes a layered view of the result.
@@ -47,29 +34,35 @@ def root(ctx, verbose):
 
 @root.command
 @click.option("--app-name", "-n", default="widget", help='VPC product [eg. "cdw"]')
-@click.option("--select-plugin", "-p", multiple=True, default=["ALL"], help="Select plugin for use.")
-def resolve(app_name, select_plugin):
+@click.option("--select-plugin", "-p", multiple=True, default=("ALL",), help="Select plugin for use.")
+@click.option(
+    "--output", "-o", default="primitive", type=click.Choice(["primitive", "serialized", "raw"]), help="Output format."
+)
+def resolve(app_name: str, select_plugin: tuple[str, ...], output: str) -> None:
     """Resolve configuration."""
-    registry = Registry(selected_plugins=select_plugin)
+    select_plugin_list: list[str] = list(select_plugin)
+    log.debug("Selecting plugins: %s", select_plugin_list)
+
+    registry = Registry(selected_plugins=select_plugin_list)
     registry.init_plugins(polyconf.plugins, logger=log)
 
-    context_initial = Context(
-        app_name=app_name,
-        app_prefix="JIRA",
-        # given={"a": "b", "c": "d"},  # Not easily practical with CLI; just noting it here.
+    result = registry.resolve(
+        Context(
+            app_name=app_name,
+            app_prefix="JIRA",
+            # given={"a": "b", "c": "d"},  # Not easily practical with CLI; just noting it here.
+        )
     )
-    context_result = pipe(context_initial, *registry.plugins)
 
-    log.info(f'Result Status: "{context_result.status}"')
-    print_json(context_result.as_obj)
+    u.report_result(context=result, output=output)
 
 
 @root.command("list")
 def list_():
     """List plugins available via discovery."""
     registry = Registry(selected_plugins=["ALL"])
-    registry.init_plugins(polyconf.plugins)
-    log.info(f"Discovered plugins: {list(registry.discovered_plugins.keys())}")
+    registry.init_plugins(polyconf.plugins, logger=log)
+    log.info("Discovered plugins: %s", list(registry.discovered_plugins.keys()))
 
 
 @root.command
@@ -78,7 +71,8 @@ def explain():
     click.echo("Not implemented yet")
 
 
-def main():
+def main() -> None:
+    """Entry point."""
     root(show_default=True)
 
 
